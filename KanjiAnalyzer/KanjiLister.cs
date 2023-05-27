@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Data.SQLite;
 using System.IO;
 using System.Text;
@@ -26,16 +27,22 @@ public class KanjiLister
 
         SQLiteConnection kanjidatabase = new SQLiteConnection("Data Source=kanjidatabase;Version=3");
         kanjidatabase.Open();
-        string create = "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, kanjichar TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
-        SQLiteCommand command = new SQLiteCommand(create, kanjidatabase);
+        string cmdText = "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, kanjichar TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
+        SQLiteCommand command = new SQLiteCommand(cmdText, kanjidatabase);
         command.ExecuteNonQuery();
+        
+        cmdText = "INSERT OR IGNORE INTO kanji (kanjichar, grp) VALUES (@kanji, @group);";
+        command = new SQLiteCommand(cmdText, kanjidatabase);
+        
+        SQLiteParameter kanjiParameter = command.Parameters.Add("@kanji", DbType.String);
+        SQLiteParameter groupParameter = command.Parameters.Add("@group", DbType.String);
+        groupParameter.Value = kanjiGroup;
 
         using (TransactionScope transaction = new TransactionScope())
         {
             foreach (char k in kanjiChars)
             {
-                create = $"INSERT OR IGNORE INTO kanji (kanjichar, grp) VALUES (\"{k}\", \"{kanjiGroup}\");";
-                command = new SQLiteCommand(create, kanjidatabase);
+                kanjiParameter.Value = k;
                 command.ExecuteNonQuery();
             }
             transaction.Complete();
@@ -103,8 +110,11 @@ public class KanjiLister
         }
         catch (SQLiteException e)
         {
-            Console.WriteLine("Failed to read database file: " + e.Message);
+            Console.WriteLine("Failed to read database file: " + collectionPath);
         }
+
+        // no need to continue if there's no data
+        if (data.Equals("")) return;
         
         List<HtmlNode> kanjiList = Webreader.ReadPage("https://en.wikipedia.org/api/rest_v1/page/html/List_of_j%C5%8Dy%C5%8D_kanji");
         List<char> kanji = Webreader.ExtractKanji(kanjiList);

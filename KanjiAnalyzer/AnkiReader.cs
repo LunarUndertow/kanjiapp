@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Data;
 using System.Data.SQLite;
 using System.IO;
 using System.Text;
@@ -21,11 +22,12 @@ public class AnkiReader
     /// features - in such case refactor to e.g. read data into a list
     /// of Strings.
     /// </summary>
-    /// <returns></returns>
+    /// <param name="filePath">File to read.</param>
+    /// <returns>Stringbuilder containing data from slfd table in notes field</returns>
     public static StringBuilder ReadDatabase(string filePath)
     {
         if (!File.Exists(filePath)) throw new FileNotFoundException("File does not exist: " + filePath);
-        SQLiteConnection anki = new SQLiteConnection("Data Source=collection.anki21;Version=3");
+        SQLiteConnection anki = new SQLiteConnection($"Data Source={filePath};Version=3");
         anki.Open();
         // field 'sfld' in table 'notes' is the front side of the card 
         String select = "SELECT sfld FROM notes;";
@@ -58,17 +60,19 @@ public class AnkiReader
         
         SQLiteConnection db = new SQLiteConnection("Data Source=" + sqlitedb + ";Version=3;");
         db.Open();
-        String dbcmd = "CREATE TABLE IF NOT EXISTS ankidata (id INTEGER PRIMARY KEY, character TEXT UNIQUE)";
-        SQLiteCommand command = new SQLiteCommand(dbcmd, db);
+        SQLiteCommand command = new SQLiteCommand(db);
+        command.CommandText = "CREATE TABLE IF NOT EXISTS ankidata (id INTEGER PRIMARY KEY, character TEXT UNIQUE)";
         command.ExecuteNonQuery();
+
+        command.CommandText = "INSERT OR IGNORE INTO ankidata (character) VALUES (@char);";
+        SQLiteParameter parameter = command.Parameters.Add("@char", DbType.String);
 
         for (int i = 0; i < ankidata.Length; i++)
         {
             char c = ankidata[i];
             if (isCjk(c))
             {
-                dbcmd = $"INSERT OR IGNORE INTO ankidata (character) VALUES (\"{c}\");";
-                command = new SQLiteCommand(dbcmd, db);
+                parameter.Value = c;
                 command.ExecuteNonQuery();
             }
         }
