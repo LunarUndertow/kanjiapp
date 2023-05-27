@@ -5,7 +5,6 @@ Reads an exported Anki collection from the program's working directory, fetches 
 
 Usage of current version: export your Anki collection as a colpkg file (check 'support older Anki versions'), and extract the 'collection.anki21' file into the working directory of KanjiApp. Running KanjiAnalyzer results in a 'kanjidatabase' file you can inspect with an SQLite database browser of your choice.
 
-TODO: let the user determine where to read the Anki collection from  
 TODO: show information to the user  
 TODO: rethink database structure to reduce redundancy  
 TODO: optimize database queries and insertions to make them faster  
