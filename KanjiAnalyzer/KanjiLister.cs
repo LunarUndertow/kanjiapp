@@ -73,13 +73,17 @@ public class KanjiLister
         command = new SQLiteCommand(select, kanjidatabase);
         SQLiteDataReader reader = command.ExecuteReader();
 
+        SQLiteCommand insert = new SQLiteCommand("INSERT OR IGNORE INTO unknown (kanji, grp) VALUES (@kanji, @group)", kanjidatabase);
+        SQLiteParameter kanjiParameter = insert.Parameters.Add("@kanji", DbType.String);
+        SQLiteParameter groupParameter = insert.Parameters.Add("@group", DbType.String);
+        
         while (reader.Read())
         {
             string k = reader.GetString(0);
             string g = reader.GetString(1);
-            string insert = $"INSERT OR IGNORE INTO unknown (kanji, grp) VALUES (\"{k}\", \"{g}\")";
-            command = new SQLiteCommand(insert, kanjidatabase);
-            command.ExecuteNonQuery();
+            kanjiParameter.Value = k;
+            groupParameter.Value = g;
+            insert.ExecuteNonQuery();
         }
         kanjidatabase.Close();
     }

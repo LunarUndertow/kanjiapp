@@ -7,6 +7,5 @@ Usage of current version: export your Anki collection as a colpkg file (check 's
 
 TODO: show information to the user  
 TODO: rethink database structure to reduce redundancy  
-TODO: optimize database queries and insertions to make them faster  
 TODO: deal with colpkg so the user doesn't have to  
 TODO: deal with Zstd archiving so the anki export doesn't have to be legacy mode
