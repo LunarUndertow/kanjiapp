@@ -22,9 +22,9 @@ public class AnkiReader
     /// of Strings.
     /// </summary>
     /// <returns></returns>
-    public static StringBuilder ReadDatabase()
+    public static StringBuilder ReadDatabase(string filePath)
     {
-        if (!File.Exists("collection.anki21")) return new StringBuilder("");
+        if (!File.Exists(filePath)) throw new FileNotFoundException("File does not exist: " + filePath);
         SQLiteConnection anki = new SQLiteConnection("Data Source=collection.anki21;Version=3");
         anki.Open();
         // field 'sfld' in table 'notes' is the front side of the card 

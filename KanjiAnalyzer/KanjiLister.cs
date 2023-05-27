@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Text;
@@ -88,6 +89,23 @@ public class KanjiLister
     /// </summary>
     public static void Main()
     {
+        Console.Write("Give Anki database location kudasai $");
+        StringBuilder data = new StringBuilder();
+        string collectionPath = Console.ReadLine();
+        
+        try
+        {
+            data = AnkiReader.ReadDatabase(collectionPath);
+        }
+        catch (FileNotFoundException e)
+        {
+            Console.WriteLine(e.Message);
+        }
+        catch (SQLiteException e)
+        {
+            Console.WriteLine("Failed to read database file: " + e.Message);
+        }
+        
         List<HtmlNode> kanjiList = Webreader.ReadPage("https://en.wikipedia.org/api/rest_v1/page/html/List_of_j%C5%8Dy%C5%8D_kanji");
         List<char> kanji = Webreader.ExtractKanji(kanjiList);
         StoreKanji(kanji, "jouyou");
@@ -95,7 +113,6 @@ public class KanjiLister
         kanji = Webreader.ExtractKanji(kanjiList);
         StoreKanji(kanji, "jinmeiyou");
         
-        StringBuilder data = AnkiReader.ReadDatabase();
         AnkiReader.InsertAnkiData("kanjidatabase", data);
         
         FindUnknownKanji();
