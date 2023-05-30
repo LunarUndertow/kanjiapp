@@ -87,6 +87,76 @@ public class KanjiLister
         }
         kanjidatabase.Close();
     }
+
+
+    /// <summary>
+    /// Queries the database for unknown kanji and returns
+    /// the results as a list of ResultsGroup objects. Each
+    /// ResultsGroup knows the name of the kanji group it
+    /// contains plus the unknown kanji in it
+    /// </summary>
+    /// <param name="databaseFile">SQLite database to query from</param>
+    /// <returns>A list of ResultsGroup objects</returns>
+    public static List<ResultsGroup<char>> FetchUnknown(string databaseFile)
+    {
+        SQLiteConnection db = new SQLiteConnection($"Data Source={databaseFile};Version=3");
+        db.Open();
+
+        var results = new List<ResultsGroup<char>>();
+        string[] groups = { "jouyou", "jinmeiyou" }; // hardcoded everywhere for now, might change if I decide to add hyougaiji or whatever
+        SQLiteCommand getResults = new SQLiteCommand("SELECT kanji FROM unknown WHERE grp = @grp;", db);
+        SQLiteParameter groupParameter = getResults.Parameters.Add("@grp", DbType.String);
+
+        foreach (string group in groups)
+        {
+            results.Add(new ResultsGroup<char>(group));
+            groupParameter.Value = group;
+            ResultsGroup<char> rg = results.Find(g => g.getName() == group);
+            SQLiteDataReader reader = getResults.ExecuteReader();
+            while (reader.Read())
+            {
+                char c = reader.GetString(0)[0];
+                rg.addItem(c);
+            }
+            reader.Close();
+        }
+        
+        db.Close();
+        return results;
+    }
+
+
+    /// <summary>
+    /// Prints character counts in each ResultsGroup, and
+    /// all character in a group should the user so desire
+    /// (better have UTF8 enabled in your terminal for this one)
+    /// </summary>
+    /// <param name="unknownKanji">A list of ResultsGroup objects</param>
+    public static void PrintResults(List<ResultsGroup<char>> unknownKanji)
+    {
+        foreach (ResultsGroup<char> group in unknownKanji)
+        {
+            string groupName = group.getName();
+            int groupCount = group.getCount();
+            Console.WriteLine($"{groupCount} unknown kanji in {groupName} group");
+            if (groupCount > 0) // no need to ask for printing if there's nothing to print
+                Console.Write($"Print all unknown {groupName} kanji? y/N $ ");
+            string choice = Console.ReadLine();
+            // only accepts Y and y for now, a yes won't fly
+            if (choice.ToLower() == "y")
+            {
+                // set the separator as a null character to avoid starting with whitespace
+                char separator = '\0';
+                foreach (char kanji in group)
+                {
+                    Console.Write(separator);
+                    Console.Write(kanji);
+                    separator = ' ';
+                }
+                Console.WriteLine();
+            }
+        }
+    }
     
     
     /// <summary>
@@ -100,7 +170,7 @@ public class KanjiLister
     /// </summary>
     public static void Main()
     {
-        Console.Write("Give Anki database location kudasai $");
+        Console.Write("Give Anki database location kudasai $ ");
         StringBuilder data = new StringBuilder();
         string collectionPath = Console.ReadLine();
         
@@ -130,5 +200,7 @@ public class KanjiLister
         AnkiReader.InsertAnkiData("kanjidatabase", data);
         
         FindUnknownKanji();
+        var unknownKanji = FetchUnknown("kanjidatabase");
+        PrintResults(unknownKanji);
     }
 }
