@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SQLite;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Transactions;
 using HtmlAgilityPack;
@@ -160,36 +161,24 @@ public class KanjiLister
     
     
     /// <summary>
-    /// Reads kanji and stores them in a database for both
-    /// jinmeiyou and jouyou kanji. Reads an Anki database
-    /// located in working directory and stores distinct
-    /// kanji in the same database as those read from the
-    /// web. Finally finds out, which jinmeiyou/jouyou kanji
-    /// are not found in the Anki database and lists them
-    /// in the database as unknown kanji.
+    /// Reads an Anki collection specified by the user and stores distinct
+    /// kanji in a new SQLite database. Reads jouyou and jinmeiyou kanji
+    /// from the web and stores them in the aforementioned database. Finally
+    /// finds out which jinmeiyou/jouyou kanji are not found in the Anki
+    /// database (card fronts only) and lists them in the database as unknown kanji.
     /// </summary>
     public static void Main()
     {
-        Console.Write("Give Anki database location kudasai $ ");
-        StringBuilder data = new StringBuilder();
+        Console.Write("Extract Anki collection onegai and give .colpkg file location kudasai $ ");
         string collectionPath = Console.ReadLine();
         
-        try
-        {
-            data = AnkiReader.ReadDatabase(collectionPath);
-        }
-        catch (FileNotFoundException e)
-        {
-            Console.WriteLine(e.Message);
-        }
-        catch (SQLiteException e)
-        {
-            Console.WriteLine("Failed to read database file: " + collectionPath);
-        }
-
+        // read data and insert it into a database
+        var data = AnkiReader.ReadCollection(collectionPath);
         // no need to continue if there's no data
         if (data.Equals("")) return;
+        AnkiReader.InsertAnkiData("kanjidatabase", data);
         
+        // fetch kanji by group and insert said groups into the database  
         List<HtmlNode> kanjiList = Webreader.ReadPage("https://en.wikipedia.org/api/rest_v1/page/html/List_of_j%C5%8Dy%C5%8D_kanji");
         List<char> kanji = Webreader.ExtractKanji(kanjiList);
         StoreKanji(kanji, "jouyou");
@@ -197,8 +186,7 @@ public class KanjiLister
         kanji = Webreader.ExtractKanji(kanjiList);
         StoreKanji(kanji, "jinmeiyou");
         
-        AnkiReader.InsertAnkiData("kanjidatabase", data);
-        
+        // find out which kanji are unknown and show results
         FindUnknownKanji();
         var unknownKanji = FetchUnknown("kanjidatabase");
         PrintResults(unknownKanji);

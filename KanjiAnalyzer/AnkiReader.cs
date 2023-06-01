@@ -2,6 +2,7 @@
 using System.Data;
 using System.Data.SQLite;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -12,10 +13,62 @@ public class AnkiReader
     // regex for matching to Chinese/Japanese/Korean unified ideographs unicode block
     // TODO: might need more unicode blocks to include everything, but seems to give decent results already
     private static readonly Regex cjkRegex = new Regex(@"\p{IsCJKUnifiedIdeographs}");
+
+    /// <summary>
+    /// Unzips the collection to a temporary directory, reads the data to
+    /// a StringBuilder, deletes temporary files and returns the StringBuilder.
+    /// The data structure might change to something more sensible than a
+    /// StringBuilder, but it works for now, as we're only interested in
+    /// distinct individual characters. For now assumes the data was extracted
+    /// in legacy mode (no Zstd compression) and the file extension is anki21
+    /// </summary>
+    /// <param name="path">Path to read the collection file from</param>
+    /// <returns>A StringBuilder containing the data</returns>
+    public static StringBuilder ReadCollection(string path)
+    {
+        StringBuilder data = new StringBuilder(); // StringBuilder to append the data into
+        
+        // extract collection archive to a temporary directory
+        string extractPath = @".\extractTemp";
+        try
+        {
+            ZipFile.ExtractToDirectory(path, extractPath);
+        }
+        catch (FileNotFoundException e)
+        {
+            Console.WriteLine(e.Message);
+        }
+        catch (InvalidDataException e)
+        {
+            Console.WriteLine(e.Message);
+        }
+
+        // read the SQLite database from the extracted archive
+        string dbFile = extractPath + @"\collection.anki21";
+        try
+        {
+            data = ReadDatabase(dbFile);
+        }
+        catch (FileNotFoundException e)
+        {
+            Console.WriteLine(e.Message);
+        }
+        catch (SQLiteException e)
+        {
+            Console.WriteLine("Failed to read database file: " + path);
+        }
+        
+        // trigger garbage collection so the temporary files can be deleted
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        Directory.Delete(@".\extractTemp", true);
+
+        return data;
+    }
+    
     
     /// <summary>
-    /// Reads an Anki database. Hardcoded to use collection.anki21 in the
-    /// current working directory for now. Returns the read data as a
+    /// Reads an Anki database. Returns the read data as a
     /// StringBuilder. We're only interested in individual characters for
     /// now, so there's no need to preserve individual elements of the
     /// database. That might be subject to change according to future
