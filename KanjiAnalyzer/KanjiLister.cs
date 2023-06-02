@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.SQLite;
 using System.IO;
-using System.IO.Compression;
-using System.Text;
 using System.Transactions;
 using HtmlAgilityPack;
 
@@ -128,33 +126,47 @@ public class KanjiLister
 
 
     /// <summary>
-    /// Prints character counts in each ResultsGroup, and
-    /// all character in a group should the user so desire
-    /// (better have UTF8 enabled in your terminal for this one)
+    /// Prints character counts in each ResultsGroup and all
+    /// characters in a group to file results.txt. Stats are also
+    /// printed to console and the individual kanji too, should
+    /// the user so desire (better have UTF8 enabled for this one)
     /// </summary>
     /// <param name="unknownKanji">A list of ResultsGroup objects</param>
     public static void PrintResults(List<ResultsGroup<char>> unknownKanji)
     {
-        foreach (ResultsGroup<char> group in unknownKanji)
+        Console.WriteLine("Stats and any unknown kanji will be printed to results.txt");
+        using (StreamWriter sw = new StreamWriter("results.txt", false))
         {
-            string groupName = group.getName();
-            int groupCount = group.getCount();
-            Console.WriteLine($"{groupCount} unknown kanji in {groupName} group");
-            if (groupCount > 0) // no need to ask for printing if there's nothing to print
-                Console.Write($"Print all unknown {groupName} kanji? y/N $ ");
-            string choice = Console.ReadLine();
-            // only accepts Y and y for now, a yes won't fly
-            if (choice.ToLower() == "y")
+            foreach (ResultsGroup<char> group in unknownKanji)
             {
-                // set the separator as a null character to avoid starting with whitespace
-                char separator = '\0';
+                string groupName = group.getName();
+                int groupCount = group.getCount();
+                string groupStats = $"{groupCount} unknown kanji in {groupName} group";
+                Console.WriteLine(groupStats);
+                sw.WriteLine(groupStats);
+                if (groupCount <= 0) continue; // no need to go on if there's nothing to print
+                
+                Console.Write($"Print all unknown {groupName} kanji to console? y/N $ ");
+                string choice = Console.ReadLine().ToLower(); // only accepts Y and y for now, a yes won't fly
+                bool printSwitch = choice.Equals("y"); // convert user choice to bool; the compiler might do this anyway but I feel better
+                                                       // about testing for a bool instead of string equality if we're going to do it a lot
+                sw.WriteLine($"Unknown kanji in {groupName}:");
+                
+                char separator = '\0'; // start with a null character to avoid starting with a space
                 foreach (char kanji in group)
                 {
-                    Console.Write(separator);
-                    Console.Write(kanji);
+                    sw.Write(separator);
+                    sw.Write(kanji);    // print each kanji to a file
+                    if (printSwitch)    // only print to console if asked to
+                    {
+                        Console.Write(separator);
+                        Console.Write(kanji);
+                    }
                     separator = ' ';
                 }
-                Console.WriteLine();
+                if (printSwitch) Console.WriteLine(); // newline if printing to console, not needed otherwise
+                for (int i = 0; i < 2; i++) // two newlines to the file so it's more readable and we get to loop a bit more
+                    sw.WriteLine();
             }
         }
     }
