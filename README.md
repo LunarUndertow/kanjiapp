@@ -3,6 +3,8 @@ Find out which jouyou and jinmeiyou kanji your Anki collection is missing
 
 Reads an exported Anki collection from the a path provided by the user, fetches jouyou and jinmeiyou kanji from Wikipedia, and creates an SQLite database with information on which kanji from the aforementioned groups are not included in the Anki cards' frontsides. For now the program only creates a database - the user has to inspect the result with another tool of their choice.
 
+As for the code, I've eschewed object oriented design for the most part for now. I might refactor later on if anything resembling a self-contained class with clear responsibilities emerges, but for now I feel that forcibly making the program object oriented would add needless convolution for little to no benefit, the scope of the program being as small as it is.
+
 ### Usage of current version
 
 To build, assuming you have dotnet SDK installed, run `dotnet build --configuration release`.
