@@ -24,30 +24,34 @@ public class KanjiLister
     {
         if (!File.Exists("kanjidatabase")) SQLiteConnection.CreateFile("kanjidatabase");
 
-        SQLiteConnection kanjidatabase = new SQLiteConnection("Data Source=kanjidatabase;Version=3");
-        kanjidatabase.Open();
-        string cmdText = "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, kanjichar TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
-        SQLiteCommand command = new SQLiteCommand(cmdText, kanjidatabase);
-        command.ExecuteNonQuery();
-        
-        cmdText = "INSERT OR IGNORE INTO kanji (kanjichar, grp) VALUES (@kanji, @group);";
-        command = new SQLiteCommand(cmdText, kanjidatabase);
-        
-        SQLiteParameter kanjiParameter = command.Parameters.Add("@kanji", DbType.String);
-        SQLiteParameter groupParameter = command.Parameters.Add("@group", DbType.String);
-        groupParameter.Value = kanjiGroup;
-
-        using (TransactionScope transaction = new TransactionScope())
+        using (SQLiteConnection kanjidatabase = new SQLiteConnection("Data Source=kanjidatabase;Version=3"))
         {
-            foreach (char k in kanjiChars)
-            {
-                kanjiParameter.Value = k;
+            kanjidatabase.Open();
+            string cmdText =
+                "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, kanjichar TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
+            using (SQLiteCommand command = new SQLiteCommand(cmdText, kanjidatabase))
                 command.ExecuteNonQuery();
-            }
-            transaction.Complete();
-        }
 
-        kanjidatabase.Close();
+            cmdText = "INSERT OR IGNORE INTO kanji (kanjichar, grp) VALUES (@kanji, @group);";
+            using (SQLiteCommand command = new SQLiteCommand(cmdText, kanjidatabase))
+            {
+
+                SQLiteParameter kanjiParameter = command.Parameters.Add("@kanji", DbType.String);
+                SQLiteParameter groupParameter = command.Parameters.Add("@group", DbType.String);
+                groupParameter.Value = kanjiGroup;
+
+                using (TransactionScope transaction = new TransactionScope())
+                {
+                    foreach (char k in kanjiChars)
+                    {
+                        kanjiParameter.Value = k;
+                        command.ExecuteNonQuery();
+                    }
+
+                    transaction.Complete();
+                }
+            }
+        }
     }
 
 
@@ -60,31 +64,36 @@ public class KanjiLister
     /// </summary>
     public static void FindUnknownKanji()
     {
-        SQLiteConnection kanjidatabase = new SQLiteConnection("Data Source=kanjidatabase;Version=3");
-        kanjidatabase.Open();
-
-        string cmd =
-            "CREATE TABLE IF NOT EXISTS unknown (id INTEGER PRIMARY KEY, kanji TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
-        SQLiteCommand command = new SQLiteCommand(cmd, kanjidatabase);
-        command.ExecuteNonQuery();
-        
-        string select = "SELECT kanjichar, grp FROM kanji WHERE kanjichar NOT IN (SELECT character FROM ankidata);";
-        command = new SQLiteCommand(select, kanjidatabase);
-        SQLiteDataReader reader = command.ExecuteReader();
-
-        SQLiteCommand insert = new SQLiteCommand("INSERT OR IGNORE INTO unknown (kanji, grp) VALUES (@kanji, @group)", kanjidatabase);
-        SQLiteParameter kanjiParameter = insert.Parameters.Add("@kanji", DbType.String);
-        SQLiteParameter groupParameter = insert.Parameters.Add("@group", DbType.String);
-        
-        while (reader.Read())
+        using (SQLiteConnection kanjidatabase = new SQLiteConnection("Data Source=kanjidatabase;Version=3"))
         {
-            string k = reader.GetString(0);
-            string g = reader.GetString(1);
-            kanjiParameter.Value = k;
-            groupParameter.Value = g;
-            insert.ExecuteNonQuery();
+            kanjidatabase.Open();
+
+            string cmd =
+                "CREATE TABLE IF NOT EXISTS unknown (id INTEGER PRIMARY KEY, kanji TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
+            using (SQLiteCommand command = new SQLiteCommand(cmd, kanjidatabase))
+                command.ExecuteNonQuery();
+
+            string select = "SELECT kanjichar, grp FROM kanji WHERE kanjichar NOT IN (SELECT character FROM ankidata);";
+            using (SQLiteCommand command = new SQLiteCommand(select, kanjidatabase))
+            {
+                SQLiteDataReader reader = command.ExecuteReader();
+
+                SQLiteCommand insert =
+                    new SQLiteCommand("INSERT OR IGNORE INTO unknown (kanji, grp) VALUES (@kanji, @group)",
+                        kanjidatabase);
+                SQLiteParameter kanjiParameter = insert.Parameters.Add("@kanji", DbType.String);
+                SQLiteParameter groupParameter = insert.Parameters.Add("@group", DbType.String);
+
+                while (reader.Read())
+                {
+                    string k = reader.GetString(0);
+                    string g = reader.GetString(1);
+                    kanjiParameter.Value = k;
+                    groupParameter.Value = g;
+                    insert.ExecuteNonQuery();
+                }
+            }
         }
-        kanjidatabase.Close();
     }
 
 
@@ -98,29 +107,36 @@ public class KanjiLister
     /// <returns>A list of ResultsGroup objects</returns>
     public static List<ResultsGroup<char>> FetchUnknown(string databaseFile)
     {
-        SQLiteConnection db = new SQLiteConnection($"Data Source={databaseFile};Version=3");
-        db.Open();
-
         var results = new List<ResultsGroup<char>>();
-        string[] groups = { "jouyou", "jinmeiyou" }; // hardcoded everywhere for now, might change if I decide to add hyougaiji or whatever
-        SQLiteCommand getResults = new SQLiteCommand("SELECT kanji FROM unknown WHERE grp = @grp;", db);
-        SQLiteParameter groupParameter = getResults.Parameters.Add("@grp", DbType.String);
-
-        foreach (string group in groups)
+        using (SQLiteConnection db = new SQLiteConnection($"Data Source={databaseFile};Version=3"))
         {
-            results.Add(new ResultsGroup<char>(group));
-            groupParameter.Value = group;
-            ResultsGroup<char> rg = results.Find(g => g.getName() == group);
-            SQLiteDataReader reader = getResults.ExecuteReader();
-            while (reader.Read())
+            db.Open();
+            string[]
+                groups =
+                {
+                    "jouyou", "jinmeiyou"
+                }; // hardcoded everywhere for now, might change if I decide to add hyougaiji or whatever
+            
+            using (SQLiteCommand getResults = new SQLiteCommand("SELECT kanji FROM unknown WHERE grp = @grp;", db))
             {
-                char c = reader.GetString(0)[0];
-                rg.addItem(c);
+                SQLiteParameter groupParameter = getResults.Parameters.Add("@grp", DbType.String);
+
+                foreach (string group in groups)
+                {
+                    results.Add(new ResultsGroup<char>(group));
+                    groupParameter.Value = group;
+                    ResultsGroup<char> rg = results.Find(g => g.getName() == group);
+                    using (SQLiteDataReader reader = getResults.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            char c = reader.GetString(0)[0];
+                            rg.addItem(c);
+                        }
+                    }
+                }
             }
-            reader.Close();
         }
-        
-        db.Close();
         return results;
     }
 

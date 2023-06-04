@@ -57,11 +57,10 @@ public class AnkiReader
         {
             Console.WriteLine("Failed to read database file: " + path);
         }
-        
-        // trigger garbage collection so the temporary files can be deleted
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        Directory.Delete(@".\extractTemp", true);
+
+        // the temporary directory might not exist if the user didn't enter a valid path for the collection
+        if (Directory.Exists(@".\extractTemp"))
+            Directory.Delete(@".\extractTemp", true);
 
         return data;
     }
@@ -80,21 +79,23 @@ public class AnkiReader
     public static StringBuilder ReadDatabase(string filePath)
     {
         if (!File.Exists(filePath)) throw new FileNotFoundException("File does not exist: " + filePath);
-        SQLiteConnection anki = new SQLiteConnection($"Data Source={filePath};Version=3");
-        anki.Open();
-        // field 'sfld' in table 'notes' is the front side of the card 
-        String select = "SELECT sfld FROM notes;";
-        SQLiteCommand command = new SQLiteCommand(select, anki);
-        SQLiteDataReader reader = command.ExecuteReader();
-
         StringBuilder data = new StringBuilder("");
-
-        while (reader.Read())
+        using (SQLiteConnection anki = new SQLiteConnection($"Data Source={filePath};Version=3"))
         {
-            String item = reader.GetString(0);
-            data.Append(item);
+            anki.Open();
+            String select = "SELECT sfld FROM notes;"; // field 'sfld' in table 'notes' is the front side of the card
+            using (SQLiteCommand command = new SQLiteCommand(select, anki))
+            {
+                using (SQLiteDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        String item = reader.GetString(0);
+                        data.Append(item);
+                    }
+                }
+            }
         }
-        anki.Close();
         return data;
     }
 
@@ -110,26 +111,30 @@ public class AnkiReader
     public static void InsertAnkiData(string sqlitedb, StringBuilder ankidata)
     {
         if (!File.Exists(sqlitedb)) SQLiteConnection.CreateFile(sqlitedb);
-        
-        SQLiteConnection db = new SQLiteConnection("Data Source=" + sqlitedb + ";Version=3;");
-        db.Open();
-        SQLiteCommand command = new SQLiteCommand(db);
-        command.CommandText = "CREATE TABLE IF NOT EXISTS ankidata (id INTEGER PRIMARY KEY, character TEXT UNIQUE)";
-        command.ExecuteNonQuery();
 
-        command.CommandText = "INSERT OR IGNORE INTO ankidata (character) VALUES (@char);";
-        SQLiteParameter parameter = command.Parameters.Add("@char", DbType.String);
-
-        for (int i = 0; i < ankidata.Length; i++)
+        using (SQLiteConnection db = new SQLiteConnection("Data Source=" + sqlitedb + ";Version=3;"))
         {
-            char c = ankidata[i];
-            if (isCjk(c))
+            db.Open();
+            using (SQLiteCommand command = new SQLiteCommand(db))
             {
-                parameter.Value = c;
+                command.CommandText =
+                    "CREATE TABLE IF NOT EXISTS ankidata (id INTEGER PRIMARY KEY, character TEXT UNIQUE)";
                 command.ExecuteNonQuery();
+
+                command.CommandText = "INSERT OR IGNORE INTO ankidata (character) VALUES (@char);";
+                SQLiteParameter parameter = command.Parameters.Add("@char", DbType.String);
+
+                for (int i = 0; i < ankidata.Length; i++)
+                {
+                    char c = ankidata[i];
+                    if (isCjk(c))
+                    {
+                        parameter.Value = c;
+                        command.ExecuteNonQuery();
+                    }
+                }
             }
         }
-        db.Close();
     }
 
 
