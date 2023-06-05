@@ -12,7 +12,7 @@ public class AnkiReader
 {
     // regex for matching to Chinese/Japanese/Korean unified ideographs unicode block
     // TODO: might need more unicode blocks to include everything, but seems to give decent results already
-    private static readonly Regex cjkRegex = new Regex(@"\p{IsCJKUnifiedIdeographs}");
+    private static readonly Regex CjkRegex = new Regex(@"\p{IsCJKUnifiedIdeographs}");
 
     /// <summary>
     /// Unzips the collection to a temporary directory, reads the data to
@@ -101,10 +101,10 @@ public class AnkiReader
 
 
     /// <summary>
-    /// Insert distinct CJK characters into a table
-    /// in an SQLite databse. Uses the isCjk method to
-    /// determine whether to add a character, so in case
-    /// of unexpected results refer to that and the cjkRegex
+    /// Insert distinct CJK characters into a table in an SQLite databse.
+    /// Uses the isCjk method to determine whether to add a character,
+    /// so in case of unexpected results refer to that and the cjkRegex.
+    /// Added characters are defined as known.
     /// </summary>
     /// <param name="sqlitedb">SQLite database file in current working directory. Will be created if does not exist.</param>
     /// <param name="ankidata">Character data to to insert.</param>
@@ -118,18 +118,18 @@ public class AnkiReader
             using (SQLiteCommand command = new SQLiteCommand(db))
             {
                 command.CommandText =
-                    "CREATE TABLE IF NOT EXISTS ankidata (id INTEGER PRIMARY KEY, character TEXT UNIQUE)";
+                    "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, character TEXT NOT NULL UNIQUE, grp TEXT, known INTEGER)";
                 command.ExecuteNonQuery();
 
-                command.CommandText = "INSERT OR IGNORE INTO ankidata (character) VALUES (@char);";
-                SQLiteParameter parameter = command.Parameters.Add("@char", DbType.String);
+                command.CommandText = "INSERT OR IGNORE INTO kanji (character, known) VALUES (@char, 1);";
+                SQLiteParameter kanjiParameter = command.Parameters.Add("@char", DbType.String);
 
                 for (int i = 0; i < ankidata.Length; i++)
                 {
                     char c = ankidata[i];
                     if (isCjk(c))
                     {
-                        parameter.Value = c;
+                        kanjiParameter.Value = c;
                         command.ExecuteNonQuery();
                     }
                 }
@@ -146,6 +146,6 @@ public class AnkiReader
     /// <returns>True if CJK, false otherwise</returns>
     public static bool isCjk(char c)
     {
-        return cjkRegex.IsMatch(c.ToString());
+        return CjkRegex.IsMatch(c.ToString());
     } 
 }

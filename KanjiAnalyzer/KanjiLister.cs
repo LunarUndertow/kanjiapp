@@ -13,9 +13,10 @@ public class KanjiLister
     /// <summary>
     /// Store a group of kanji in an SQLite database.
     /// The kanji will be added into 'kanji' table with fields
-    /// for the character and the group it belongs to.
-    /// The database file is 'kanjidatabase' in the working
-    /// directory and will be created if it doesn't exist.
+    /// for the character, the group it belongs to, and whether
+    /// it's unknown. Any kanji not defined 'known' by InsertAnkiData
+    /// is marked as unknown. The database file is 'kanjidatabase'
+    /// in the working directory and will be created if it doesn't exist.
     /// Only distinct kanji will be added, duplicates are ignored.
     /// </summary>
     /// <param name="kanjiChars">A list of characters to add</param>
@@ -28,11 +29,11 @@ public class KanjiLister
         {
             kanjidatabase.Open();
             string cmdText =
-                "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, kanjichar TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
+                "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, character TEXT NOT NULL UNIQUE, grp TEXT, known INTEGER);";
             using (SQLiteCommand command = new SQLiteCommand(cmdText, kanjidatabase))
                 command.ExecuteNonQuery();
 
-            cmdText = "INSERT OR IGNORE INTO kanji (kanjichar, grp) VALUES (@kanji, @group);";
+            cmdText = "INSERT OR IGNORE INTO kanji (character, grp) VALUES (@kanji, @group);";
             using (SQLiteCommand command = new SQLiteCommand(cmdText, kanjidatabase))
             {
 
@@ -48,49 +49,11 @@ public class KanjiLister
                         command.ExecuteNonQuery();
                     }
 
+                    string unknown = "UPDATE kanji SET known = 0 WHERE known IS NULL";
+                    using (SQLiteCommand markUnknown = new SQLiteCommand(unknown, kanjidatabase))
+                        markUnknown.ExecuteNonQuery();
+
                     transaction.Complete();
-                }
-            }
-        }
-    }
-
-
-    /// <summary>
-    /// Connect to kanjidatabase and find kanji that are unknown,
-    /// i.e. not in the data extracted from the anki deck.
-    /// Create a new table for the unknown kanji, including the
-    /// kanji and the group it belongs to as fields.
-    /// TODO: rethink to reduce database redundancy 
-    /// </summary>
-    public static void FindUnknownKanji()
-    {
-        using (SQLiteConnection kanjidatabase = new SQLiteConnection("Data Source=kanjidatabase;Version=3"))
-        {
-            kanjidatabase.Open();
-
-            string cmd =
-                "CREATE TABLE IF NOT EXISTS unknown (id INTEGER PRIMARY KEY, kanji TEXT NOT NULL UNIQUE, grp TEXT NOT NULL);";
-            using (SQLiteCommand command = new SQLiteCommand(cmd, kanjidatabase))
-                command.ExecuteNonQuery();
-
-            string select = "SELECT kanjichar, grp FROM kanji WHERE kanjichar NOT IN (SELECT character FROM ankidata);";
-            using (SQLiteCommand command = new SQLiteCommand(select, kanjidatabase))
-            {
-                SQLiteDataReader reader = command.ExecuteReader();
-
-                SQLiteCommand insert =
-                    new SQLiteCommand("INSERT OR IGNORE INTO unknown (kanji, grp) VALUES (@kanji, @group)",
-                        kanjidatabase);
-                SQLiteParameter kanjiParameter = insert.Parameters.Add("@kanji", DbType.String);
-                SQLiteParameter groupParameter = insert.Parameters.Add("@group", DbType.String);
-
-                while (reader.Read())
-                {
-                    string k = reader.GetString(0);
-                    string g = reader.GetString(1);
-                    kanjiParameter.Value = k;
-                    groupParameter.Value = g;
-                    insert.ExecuteNonQuery();
                 }
             }
         }
@@ -111,13 +74,9 @@ public class KanjiLister
         using (SQLiteConnection db = new SQLiteConnection($"Data Source={databaseFile};Version=3"))
         {
             db.Open();
-            string[]
-                groups =
-                {
-                    "jouyou", "jinmeiyou"
-                }; // hardcoded everywhere for now, might change if I decide to add hyougaiji or whatever
+            string[] groups = { "jouyou", "jinmeiyou" }; // hardcoded everywhere for now, might change if I decide to add hyougaiji or whatever
             
-            using (SQLiteCommand getResults = new SQLiteCommand("SELECT kanji FROM unknown WHERE grp = @grp;", db))
+            using (SQLiteCommand getResults = new SQLiteCommand("SELECT character FROM kanji WHERE grp = @grp AND known = 0;", db))
             {
                 SQLiteParameter groupParameter = getResults.Parameters.Add("@grp", DbType.String);
 
@@ -214,8 +173,7 @@ public class KanjiLister
         kanji = Webreader.ExtractKanji(kanjiList);
         StoreKanji(kanji, "jinmeiyou");
         
-        // find out which kanji are unknown and show results
-        FindUnknownKanji();
+        // fetch unknown kanji and show results
         var unknownKanji = FetchUnknown("kanjidatabase");
         PrintResults(unknownKanji);
     }

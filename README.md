@@ -15,6 +15,5 @@ The program creates a 'kanjidatabase' file you can inspect with an SQLite databa
 
 ### Todos
 
-TODO: rethink database structure to reduce redundancy  
 TODO: deal with Zstd archiving so the anki export doesn't have to be legacy mode  
 TODO: if database already exists, only update it and don't fetch kanji from the web
