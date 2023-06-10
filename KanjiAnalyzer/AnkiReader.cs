@@ -5,6 +5,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
+using ZstdNet;
 
 namespace KanjiAnalyzer;
 
@@ -19,8 +20,8 @@ public class AnkiReader
     /// a StringBuilder, deletes temporary files and returns the StringBuilder.
     /// The data structure might change to something more sensible than a
     /// StringBuilder, but it works for now, as we're only interested in
-    /// distinct individual characters. For now assumes the data was extracted
-    /// in legacy mode (no Zstd compression) and the file extension is anki21
+    /// distinct individual characters. Handles both Anki's legacy mode export
+    /// and the newer one that utilizes Zstd compression.
     /// </summary>
     /// <param name="path">Path to read the collection file from</param>
     /// <returns>A StringBuilder containing the data</returns>
@@ -44,10 +45,32 @@ public class AnkiReader
         }
 
         // read the SQLite database from the extracted archive
-        string dbFile = extractPath + @"\collection.anki21";
         try
         {
-            data = ReadDatabase(dbFile);
+            string anki21bFile = extractPath + @"\collection.anki21b"; // anki21b file extension implies zstd compression
+            if (File.Exists(anki21bFile))                              // if we find one, extract it to "collection" file
+            {
+                using (var fileStream = File.Open(anki21bFile, FileMode.Open))
+                using (var decompressionStream = new DecompressionStream(fileStream))
+                using (var writeStream = File.Create(extractPath + @"\collection"))
+                {
+                    decompressionStream.CopyTo(writeStream);
+                }
+            }
+
+            // go through possible filenames and try to get data
+            string dbFile;
+            // leave "collection.anki2" for the last because Anki export
+            // creates one even if it exports the actual data elsewhere
+            string[] fileNames = { @"\collection", @"\collection.anki21", @"\collection.anki2" };
+            int i = 0;
+            while (data.Equals("") && i < fileNames.Length)
+            {
+                dbFile = extractPath + fileNames[i];
+                if (File.Exists(dbFile))
+                    data = ReadDatabase(dbFile);
+                i++;
+            }
         }
         catch (FileNotFoundException e)
         {
