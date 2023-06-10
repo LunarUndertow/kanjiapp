@@ -21,11 +21,12 @@ public class KanjiLister
     /// </summary>
     /// <param name="kanjiChars">A list of characters to add</param>
     /// <param name="kanjiGroup">The kanji group, e.g. jouyou or jinmeiyou</param>
-    public static void StoreKanji(List<char> kanjiChars, string kanjiGroup)
+    /// <param name="database">SQLite database file to store the kanji in</param>
+    public static void StoreKanji(List<char> kanjiChars, string kanjiGroup, string database)
     {
-        if (!File.Exists("kanjidatabase")) SQLiteConnection.CreateFile("kanjidatabase");
+        if (!File.Exists(database)) SQLiteConnection.CreateFile(database);
 
-        using (SQLiteConnection kanjidatabase = new SQLiteConnection("Data Source=kanjidatabase;Version=3"))
+        using (SQLiteConnection kanjidatabase = new SQLiteConnection($"Data Source={database};Version=3"))
         {
             kanjidatabase.Open();
             string cmdText =
@@ -158,23 +159,25 @@ public class KanjiLister
     {
         Console.Write("Extract Anki collection onegai and give .colpkg file location kudasai $ ");
         string collectionPath = Console.ReadLine();
+
+        string database = "kanjidatabase"; // database file to store the kanji in 
         
         // read data and insert it into a database
         var data = AnkiReader.ReadCollection(collectionPath);
         // no need to continue if there's no data
         if (data.Equals("")) return;
-        AnkiReader.InsertAnkiData("kanjidatabase", data);
+        AnkiReader.InsertAnkiData(database, data);
         
         // fetch kanji by group and insert said groups into the database  
         List<HtmlNode> kanjiList = Webreader.ReadPage("https://en.wikipedia.org/api/rest_v1/page/html/List_of_j%C5%8Dy%C5%8D_kanji");
         List<char> kanji = Webreader.ExtractKanji(kanjiList);
-        StoreKanji(kanji, "jouyou");
+        StoreKanji(kanji, "jouyou", database);
         kanjiList = Webreader.ReadPageJinmeiyou("https://en.wikipedia.org/api/rest_v1/page/html/Jinmeiyō_kanji");
         kanji = Webreader.ExtractKanji(kanjiList);
-        StoreKanji(kanji, "jinmeiyou");
+        StoreKanji(kanji, "jinmeiyou", database);
         
         // fetch unknown kanji and show results
-        var unknownKanji = FetchUnknown("kanjidatabase");
+        var unknownKanji = FetchUnknown(database);
         PrintResults(unknownKanji);
     }
 }
