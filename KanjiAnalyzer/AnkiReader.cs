@@ -104,37 +104,48 @@ public class AnkiReader
     /// Insert distinct CJK characters into a table in an SQLite databse.
     /// Uses the isCjk method to determine whether to add a character,
     /// so in case of unexpected results refer to that and the cjkRegex.
-    /// Added characters are defined as known.
+    /// Added characters are defined as known. If a database already exists,
+    /// only insert missing kanji and update the 'known' value as true for
+    /// any kanji in Anki collection, so kanji previously marked as unknown
+    /// get updated.
     /// </summary>
     /// <param name="sqlitedb">SQLite database file in current working directory. Will be created if does not exist.</param>
     /// <param name="ankidata">Character data to to insert.</param>
-    public static void InsertAnkiData(string sqlitedb, StringBuilder ankidata)
+    /// <returns>True if database already exists, false if not</returns>
+    public static bool InsertAnkiData(string sqlitedb, StringBuilder ankidata)
     {
-        if (!File.Exists(sqlitedb)) SQLiteConnection.CreateFile(sqlitedb);
+        bool dbExists = File.Exists(sqlitedb);
+        if (!dbExists) SQLiteConnection.CreateFile(sqlitedb);
 
-        using (SQLiteConnection db = new SQLiteConnection("Data Source=" + sqlitedb + ";Version=3;"))
+        using (SQLiteConnection db = new SQLiteConnection($"Data Source={sqlitedb};Version=3;"))
         {
             db.Open();
-            using (SQLiteCommand command = new SQLiteCommand(db))
+            using (SQLiteCommand command = new SQLiteCommand(db), update = new SQLiteCommand(db))
             {
                 command.CommandText =
                     "CREATE TABLE IF NOT EXISTS kanji (id INTEGER PRIMARY KEY, character TEXT NOT NULL UNIQUE, grp TEXT, known INTEGER)";
                 command.ExecuteNonQuery();
 
-                command.CommandText = "INSERT OR IGNORE INTO kanji (character, known) VALUES (@char, 1);";
-                SQLiteParameter kanjiParameter = command.Parameters.Add("@char", DbType.String);
+                command.CommandText = "INSERT OR IGNORE INTO kanji (character) VALUES (@char);"; // use INSERT OR IGNORE and UPDATE in a separate command because
+                update.CommandText = "UPDATE kanji SET known = 1 WHERE character = @char;";      // doing it in one command with INSERT OR REPLACE is abysmally slow
+                SQLiteParameter kanjiInsertParameter = command.Parameters.Add("@char", DbType.String);
+                SQLiteParameter kanjiUpdateParameter = update.Parameters.Add("@char", DbType.String);
 
                 for (int i = 0; i < ankidata.Length; i++)
                 {
                     char c = ankidata[i];
                     if (isCjk(c))
                     {
-                        kanjiParameter.Value = c;
+                        kanjiInsertParameter.Value = c;
+                        kanjiUpdateParameter.Value = c;
                         command.ExecuteNonQuery();
+                        update.ExecuteNonQuery();
                     }
                 }
             }
         }
+
+        return dbExists;
     }
 
 

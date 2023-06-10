@@ -1,7 +1,7 @@
 # kanjiapp
-Find out which jouyou and jinmeiyou kanji your Anki collection is missing
+A terminal application to find out which jouyou and jinmeiyou kanji your Anki collection is missing
 
-Reads an exported Anki collection from the a path provided by the user, fetches jouyou and jinmeiyou kanji from Wikipedia, and creates an SQLite database with information on which kanji from the aforementioned groups are not included in the Anki cards' frontsides. For now the program only creates a database - the user has to inspect the result with another tool of their choice.
+Reads an exported Anki collection from the a path provided by the user, fetches jouyou and jinmeiyou kanji from Wikipedia, and creates an SQLite database with information on which kanji from the aforementioned groups are not included in the Anki cards' frontsides. Prints results in the console and in a file.
 
 As for the code, I've eschewed object oriented design for the most part for now. I might refactor later on if anything resembling a self-contained class with clear responsibilities emerges, but for now I feel that forcibly making the program object oriented would add needless convolution for little to no benefit, the scope of the program being as small as it is.
 
@@ -15,5 +15,4 @@ The program creates a 'kanjidatabase' file you can inspect with an SQLite databa
 
 ### Todos
 
-TODO: deal with Zstd archiving so the anki export doesn't have to be legacy mode  
-TODO: if database already exists, only update it and don't fetch kanji from the web
+TODO: deal with Zstd archiving so the anki export doesn't have to be legacy mode
