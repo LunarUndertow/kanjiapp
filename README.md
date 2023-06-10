@@ -9,6 +9,6 @@ As for the code, I eschewed object oriented design for the most part when starti
 
 To build, assuming you have dotnet SDK installed, run `dotnet build --configuration release`.
 
-Export your Anki collection as a colpkg file somewhere. When running the program, it asks for the location of the collection file. Both relative and absolute paths should work. The program will tell you how many jouyou and jinmeiyou kanji your deck is still missing (only card fronts count), and print all individual unknown kanji for each group to console if you want it to. Please have UTF8 enabled in your terminal for the kanji to display properly. The stats and all unknown kanji will be printed to results.txt regardless of printing to console.
+Export your Anki collection as a colpkg file somewhere (feel free to uncheck "include media" for faster export and smaller file size). When running the program, it asks for the location of the collection file. Both relative and absolute paths should work. The program will tell you how many jouyou and jinmeiyou kanji your deck is still missing (only card fronts count), and print all individual unknown kanji for each group to console if you want it to. Please have UTF8 enabled in your terminal for the kanji to display properly. The stats and all unknown kanji will be printed to results.txt regardless of printing to console.
 
 The program creates a 'kanjidatabase' file you can inspect with an SQLite database browser of your choice in the working directory of the program.
